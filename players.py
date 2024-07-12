@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import csv
 import logging
 import os
@@ -11,7 +13,9 @@ def _cache_dir_create():
     os.mkdir('.cache')
 
 class PlayerBase:
-  def __init__(self):
+  def __init__(self, base_filename, player_type):
+    self._filename = base_filename
+    self._player_type = player_type
     self._rows = []
     self._by_id = {}
   def add_player(self, player_id, jp_name, en_name):
@@ -24,7 +28,7 @@ class PlayerBase:
     i = first
     session = requests.Session()
     while max_players > 0:
-      p = Player(i)
+      p = Player(i, self._player_type)
       if p.dowload(session) > 0:
         delay = random.uniform(min_delay, max_delay)
         logging.debug(f"Sleeping for {delay} seconds.")
@@ -40,26 +44,31 @@ class PlayerBase:
       i += 1
       max_players -= 1
   def load(self):
-    with open('players.csv', 'r', newline='', encoding = 'UTF8') as csvfile:
+    if not os.path.lexists(self._filename):
+      return False
+    with open(self._filename, 'r', newline='', encoding = 'utf-8') as csvfile:
       reader = csv.reader(csvfile, dialect = 'unix', quoting=csv.QUOTE_MINIMAL)
       header = next(reader)
       for player_id, jp_name, en_name in reader:
         self.add_player(player_id, jp_name, en_name)
+    return True
   def save(self):
-    with open('players.csv', 'w', newline='', encoding = 'UTF8') as csvfile:
-      #writer = csv.writer(csvfile, dialect = 'unix', delimiter=' ', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+    with open(self._filename, 'w', newline='', encoding = 'utf-8') as csvfile:
       writer = csv.writer(csvfile, dialect = 'unix', quoting=csv.QUOTE_MINIMAL)
       writer.writerow(('id', 'jp_name', 'en_name'))
       for t in self._rows:
         writer.writerow(t)
 
 class Player:
-  def __init__(self, player_id):
+  def __init__(self, player_id, player_type = 'pro'):
     self.id = player_id
+    assert((player_type == 'pro') or (player_type == 'lady'))
+    self._type = player_type 
   def url(self):
-    return f'https://www.shogi.or.jp/player/pro/{self.id}.html'
+    return f'https://www.shogi.or.jp/player/{self._type}/{self.id}.html'
   def filename(self):
-    return os.path.join('.cache', str(self.id) + '.html')
+    prefix = '' if self._type == 'pro' else 'l'
+    return os.path.join('.cache', prefix + str(self.id) + '.html')
   def dowload(self, session = None):
     _cache_dir_create()
     output_filename = self.filename()

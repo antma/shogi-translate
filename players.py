@@ -1,12 +1,17 @@
 # -*- coding: utf-8 -*-
 
-import csv
+#standard
 import logging
 import os
 import pprint
 import random
-import requests
 import time
+
+#library
+import requests
+
+#project
+import csv_unix
 
 def _cache_dir_create():
   if not os.path.lexists('.cache'):
@@ -19,6 +24,8 @@ class PlayerBase:
     self._rows = []
     self._by_id = {}
   def add_player(self, player_id, jp_name, en_name):
+    if isinstance(player_id, str):
+      player_id = int(player_id)
     if player_id in self._by_id:
       return False
     self._by_id[player_id] = len(self._rows)
@@ -44,26 +51,18 @@ class PlayerBase:
       i += 1
       max_players -= 1
   def load(self):
-    if not os.path.lexists(self._filename):
-      return False
-    with open(self._filename, 'r', newline='', encoding = 'utf-8') as csvfile:
-      reader = csv.reader(csvfile, dialect = 'unix', quoting=csv.QUOTE_MINIMAL)
-      header = next(reader)
-      for player_id, jp_name, en_name in reader:
-        self.add_player(player_id, jp_name, en_name)
-    return True
+    for (player_id, jp_name, en_name) in csv_unix.words_load(self._filename):
+      self.add_player(player_id, jp_name, en_name)
   def save(self):
-    with open(self._filename, 'w', newline='', encoding = 'utf-8') as csvfile:
-      writer = csv.writer(csvfile, dialect = 'unix', quoting=csv.QUOTE_MINIMAL)
-      writer.writerow(('id', 'jp_name', 'en_name'))
-      for t in self._rows:
-        writer.writerow(t)
+    csv_unix.words_save(self._filename, self._rows)
 
 class Player:
   def __init__(self, player_id, player_type = 'pro'):
     self.id = player_id
     assert((player_type == 'pro') or (player_type == 'lady'))
-    self._type = player_type 
+    self._type = player_type
+    self.jp_name = None
+    self.en_name = None
   def url(self):
     return f'https://www.shogi.or.jp/player/{self._type}/{self.id}.html'
   def filename(self):
@@ -78,16 +77,16 @@ class Player:
     url = self.url()
     logging.info(f'Downloading {url}')
     if session is None:
-      r = requests.get(url)
+      r = requests.get(url, timeout = 10.0)
     else:
-      r = session.get(url)
+      r = session.get(url, timeout = 10.0)
     logging.debug(pprint.pformat(r.headers))
     logging.info(f'Request status code is {r.status_code}, encoding is {r.encoding}')
     if r.encoding != 'utf-8':
       logging.info('Changing encoding to "utf-8"')
       r.encoding = 'utf-8'
     if r.status_code == 200:
-      with open(output_filename, 'w') as f:
+      with open(output_filename, 'w', encoding = 'utf-8') as f:
         f.write(r.text)
       return 1
     return -1
@@ -95,7 +94,7 @@ class Player:
     output_filename = self.filename()
     #if not os.path.lexists(output_filename):
     #  self.dowload()
-    with open(output_filename, 'r') as f:
+    with open(output_filename, 'r', encoding = 'utf-8') as f:
       state = 0
       for s in f:
         t = s.strip()
@@ -105,7 +104,7 @@ class Player:
         elif state == 1:
           pat = '<span class="jp">'
           i = t.index(pat)
-          t = t[len(pat):]
+          t = t[i+len(pat):]
           pat = '</span>'
           j = t.rindex(pat)
           self.jp_name = t[0:j].strip()
@@ -113,11 +112,12 @@ class Player:
         elif state == 2:
           pat = '<span class="en">'
           i = t.index(pat)
-          t = t[len(pat):]
+          t = t[i + len(pat):]
           pat = '</span>'
           j = t.rindex(pat)
           self.en_name = t[0:j].strip()
           logging.debug(f'Player #{self.id}: {self.jp_name} -> {self.en_name}')
-          if len(self.en_name) == 0: return 0
+          if len(self.en_name) == 0:
+            return 0
           return 1
     return -1

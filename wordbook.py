@@ -22,7 +22,7 @@ class WordBook:
       n += 1
     logging.info(f'Add {n} words from filename "{filename}"')
   def load_all(self):
-    for tp in ['pro', 'lady']:
+    for tp in ['pro', 'lady', 'title', 'openings', 'other']:
       self._load(tp + '.csv')
   def _match(self, s, pos):
     p = self._d.get(s[pos])

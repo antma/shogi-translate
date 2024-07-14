@@ -12,10 +12,7 @@ import requests
 
 #project
 import csv_unix
-
-def _cache_dir_create():
-  if not os.path.lexists('.cache'):
-    os.mkdir('.cache')
+import utils
 
 class PlayerBase:
   def __init__(self, base_filename, player_type):
@@ -67,9 +64,9 @@ class Player:
     return f'https://www.shogi.or.jp/player/{self._type}/{self.id}.html'
   def filename(self):
     prefix = '' if self._type == 'pro' else 'l'
-    return os.path.join('.cache', prefix + str(self.id) + '.html')
+    return utils.cache_filename(prefix + str(self.id) + '.html')
   def dowload(self, session = None):
-    _cache_dir_create()
+    utils.cache_dir_create()
     output_filename = self.filename()
     if os.path.lexists(output_filename):
       logging.info(f'Player file "{output_filename}" is already downloaded')

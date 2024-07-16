@@ -7,6 +7,12 @@ import os
 import pickle
 import subprocess
 import csv
+from datetime import datetime
+from time import mktime
+
+#library
+import feedparser
+import PyRSS2Gen
 
 #project
 import utils
@@ -71,3 +77,29 @@ def _google_translate(text):
     logging.debug('%s', r.stderr.decode('utf-8'))
     return None
   return r.stdout.decode('utf-8')
+
+def _cvt_date(s):
+  return datetime.fromtimestamp(mktime(s))
+
+def youtube_translate_video_playlist(channel, output_rss_filename):
+  rss_url = f'https://www.youtube.com/feeds/videos.xml?channel_id={channel}'
+  d = feedparser.parse(rss_url)
+  import pprint
+  logging.debug(pprint.pp(d))
+  items = []
+  f = d['feed']
+  with CachedCSVGoogleTranslate() as gt:
+    feed_title = gt.translate(f['title'])
+    for e in d['entries']:
+      title = gt.translate(e['title'])
+      link = e['link']
+      items.append(PyRSS2Gen.RSSItem(
+        title = title,
+        link = link,
+        guid = PyRSS2Gen.Guid(link),
+        pubDate = _cvt_date(e['published_parsed'])
+      ))
+  rss = PyRSS2Gen.RSS2(title = feed_title, description = '', link = f['link'], items = items, pubDate = _cvt_date(f['published_parsed']))
+  with open(output_rss_filename, "w") as g:
+    rss.write_xml(g)
+

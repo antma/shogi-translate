@@ -92,11 +92,14 @@ def youtube_translate_video_playlist(channel, output_rss_filename, filter_title 
     feed_title = gt.translate(f['title'])
     for e in d['entries']:
       title = e['title']
+      views = int(e['media_statistics']['views'])
+      if views == 0: continue
       if (not filter_title is None) and (not filter_title(title)): continue
       title = gt.translate(title)
       link = e['link']
       items.append(PyRSS2Gen.RSSItem(
         title = title,
+        description = f'views: {views}',
         link = link,
         guid = PyRSS2Gen.Guid(link),
         pubDate = _cvt_date(e['published_parsed'])

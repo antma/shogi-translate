@@ -81,7 +81,7 @@ def _google_translate(text):
 def _cvt_date(s):
   return datetime.fromtimestamp(mktime(s))
 
-def youtube_translate_video_playlist(channel, output_rss_filename):
+def youtube_translate_video_playlist(channel, output_rss_filename, filter_title = None):
   rss_url = f'https://www.youtube.com/feeds/videos.xml?channel_id={channel}'
   d = feedparser.parse(rss_url)
   import pprint
@@ -91,7 +91,9 @@ def youtube_translate_video_playlist(channel, output_rss_filename):
   with CachedCSVGoogleTranslate() as gt:
     feed_title = gt.translate(f['title'])
     for e in d['entries']:
-      title = gt.translate(e['title'])
+      title = e['title']
+      if (not filter_title is None) and (not filter_title(title)): continue
+      title = gt.translate(title)
       link = e['link']
       items.append(PyRSS2Gen.RSSItem(
         title = title,

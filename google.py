@@ -6,6 +6,7 @@ import logging
 import os
 import pickle
 import subprocess
+import csv
 
 #project
 import utils
@@ -33,33 +34,36 @@ def youtube_recent_videos(channel_url, limit = 10, days = 3):
       d = {}
   return res
 
-class CachedGoogleTranslate:
+class CachedCSVGoogleTranslate:
   """ should be used by with statement """
   def __init__(self):
     self._cache = {}
-    self._cache_filename = utils.cache_filename('cached_google_translate.pickle')
+    self._cache_filename = utils.cache_filename('cached_google_translate.csv')
+    self._updates = []
     if os.path.lexists(self._cache_filename):
-      with open(self._cache_filename, 'rb') as f:
-        self._cache = pickle.load(f)
-    self._pickle_len = len(self._cache)
+      with open(self._cache_filename, 'r', encoding = 'utf-8') as csvfile:
+        reader = csv.reader(csvfile, dialect = 'unix', quoting=csv.QUOTE_MINIMAL)
+        for jp, en in reader:
+          self._cache[jp] = en
   def __enter__(self):
     return self
   def __exit__(self, exc_type, exc_value, traceback):
-    l = len(self._cache)
-    if l > self._pickle_len:
-      logging.info(f"Saving google translate cache ({l} items)")
-      with open(self._cache_filename, 'wb') as f:
-        self._cache = pickle.dump(self._cache, f, protocol = pickle.HIGHEST_PROTOCOL)
+    if len(self._updates) > 0:
+      with open(self._cache_filename, 'a', encoding = 'utf-8') as csvfile:
+        writer = csv.writer(csvfile, dialect = 'unix', quoting=csv.QUOTE_MINIMAL)
+        for t in self._updates:
+          writer.writerow(t)
   def translate(self, text):
     p = self._cache.get(text)
     if p != None: return p
     t = _google_translate(text)
+    self._updates.append((text, t))
     self._cache[text] = t
     return t
 
 def _google_translate(text):
   """ use Google Translate via translate-shell package """
-  cmd = ['trans', '-b', '-e google', 'ja:en', text]
+  cmd = ['trans', '-b', '-e', 'google', 'ja:en', text]
   logging.debug(f'Run command: {cmd}')
   r = subprocess.run(cmd, check = False, shell = False, capture_output=True)
   if r.returncode != 0:
@@ -67,8 +71,3 @@ def _google_translate(text):
     logging.debug('%s', r.stderr.decode('utf-8'))
     return None
   return r.stdout.decode('utf-8')
-  
-
-
-
-  

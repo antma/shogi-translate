@@ -51,7 +51,10 @@ class CachedCSVGoogleTranslate:
       with open(self._cache_filename, 'r', encoding = 'utf-8') as csvfile:
         reader = csv.reader(csvfile, dialect = 'unix', quoting=csv.QUOTE_MINIMAL)
         for jp, en in reader:
-          self._cache[jp] = en
+          if en == '':
+            logging.debug('Skip empty translation')
+          else:
+            self._cache[jp] = en
   def __enter__(self):
     return self
   def __exit__(self, exc_type, exc_value, traceback):
@@ -64,6 +67,8 @@ class CachedCSVGoogleTranslate:
     p = self._cache.get(text)
     if p != None: return p
     t = _google_translate(text)
+    if t is None:
+      return None
     self._updates.append((text, t))
     self._cache[text] = t
     return t
@@ -145,7 +150,9 @@ def _google_translate(text):
     logging.warning(f"trans exit code {r.returncode}")
     logging.debug('%s', r.stderr.decode('utf-8'))
     return None
-  return r.stdout.decode('utf-8')
+  res = r.stdout.decode('utf-8')
+  logging.debug(res)
+  return res
 
 def _cvt_date(s):
   return datetime.fromtimestamp(time.mktime(s))
